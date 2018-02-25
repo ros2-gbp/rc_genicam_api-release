@@ -1,0 +1,13 @@
+Source: ros-kinetic-rc-genicam-api
+Section: misc
+Priority: extra
+Maintainer: Felix Ruess <felix.ruess@roboception.de>
+Build-Depends: debhelper (>= 9.0.0), cmake
+Homepage: 
+Standards-Version: 3.9.2
+
+Package: ros-kinetic-rc-genicam-api
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-kinetic-catkin
+Description: GenICam Convenience Layer.
+ See LICENSE.md for licensing terms of the different parts.
