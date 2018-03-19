@@ -1,3 +1,26 @@
+## rc_genicam_api (melodic) - 1.3.6-0
+
+The packages in the `rc_genicam_api` repository were released into the `melodic` distro by running `/home/flixr/.local/bin/bloom-release rc_genicam_api --track melodic --rosdistro melodic --new-track` on `Mon, 19 Mar 2018 20:03:39 -0000`
+
+The `rc_genicam_api` package was released.
+
+Version of package(s) in repository `rc_genicam_api`:
+
+- upstream repository: https://github.com/roboception/rc_genicam_api.git
+- release repository: unknown
+- rosdistro version: `null`
+- old version: `null`
+- new version: `1.3.6-0`
+
+Versions of tools used:
+
+- bloom version: `0.6.2`
+- catkin_pkg version: `0.4.1`
+- rosdep version: `0.12.1`
+- rosdistro version: `0.6.8`
+- vcstools version: `0.1.40`
+
+
 ## rc_genicam_api (lunar) - 1.3.6-0
 
 The packages in the `rc_genicam_api` repository were released into the `lunar` distro by running `/usr/bin/bloom-release rc_genicam_api --track lunar --ros-distro lunar --new-track` on `Tue, 27 Feb 2018 17:56:57 -0000`
