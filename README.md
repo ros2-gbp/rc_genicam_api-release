@@ -1,3 +1,26 @@
+## rc_genicam_api (lunar) - 2.0.2-0
+
+The packages in the `rc_genicam_api` repository were released into the `lunar` distro by running `/usr/bin/bloom-release --ros-distro lunar rc_genicam_api` on `Wed, 02 Jan 2019 09:52:15 -0000`
+
+The `rc_genicam_api` package was released.
+
+Version of package(s) in repository `rc_genicam_api`:
+
+- upstream repository: https://github.com/roboception/rc_genicam_api.git
+- release repository: https://github.com/roboception-gbp/rc_genicam_api-release.git
+- rosdistro version: `2.0.0-0`
+- old version: `2.0.0-0`
+- new version: `2.0.2-0`
+
+Versions of tools used:
+
+- bloom version: `0.6.9`
+- catkin_pkg version: `0.4.9`
+- rosdep version: `0.13.0`
+- rosdistro version: `0.7.0`
+- vcstools version: `0.1.40`
+
+
 ## rc_genicam_api (kinetic) - 2.0.2-0
 
 The packages in the `rc_genicam_api` repository were released into the `kinetic` distro by running `/usr/bin/bloom-release --ros-distro kinetic rc_genicam_api` on `Wed, 02 Jan 2019 09:47:05 -0000`
