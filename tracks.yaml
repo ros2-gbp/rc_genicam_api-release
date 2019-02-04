@@ -13,8 +13,8 @@ tracks:
     - git-bloom-generate -y rosrpm --prefix release/:{ros_distro} :{ros_distro} -i
       :{release_inc}
     devel_branch: null
-    last_release: '"v2.0.2"'
-    last_version: 2.0.2
+    last_release: '"v2.1.0"'
+    last_version: 2.1.0
     name: rc_genicam_api
     patches: null
     release_inc: '0'
