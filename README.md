@@ -1,3 +1,26 @@
+## rc_genicam_api (kinetic) - 2.2.3-1
+
+The packages in the `rc_genicam_api` repository were released into the `kinetic` distro by running `/usr/bin/bloom-release --ros-distro kinetic rc_genicam_api` on `Wed, 11 Dec 2019 19:09:28 -0000`
+
+The `rc_genicam_api` package was released.
+
+Version of package(s) in repository `rc_genicam_api`:
+
+- upstream repository: https://github.com/roboception/rc_genicam_api.git
+- release repository: https://github.com/roboception-gbp/rc_genicam_api-release.git
+- rosdistro version: `2.2.2-1`
+- old version: `2.2.2-1`
+- new version: `2.2.3-1`
+
+Versions of tools used:
+
+- bloom version: `0.9.0`
+- catkin_pkg version: `0.4.14`
+- rosdep version: `0.18.0`
+- rosdistro version: `0.7.5`
+- vcstools version: `0.1.40`
+
+
 ## rc_genicam_api (melodic) - 2.2.2-1
 
 The packages in the `rc_genicam_api` repository were released into the `melodic` distro by running `/usr/bin/bloom-release rc_genicam_api --rosdistro melodic` on `Wed, 24 Jul 2019 09:22:47 -0000`
