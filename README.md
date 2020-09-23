@@ -1,3 +1,26 @@
+## rc_genicam_api (dashing) - 2.4.1-1
+
+The packages in the `rc_genicam_api` repository were released into the `dashing` distro by running `/usr/bin/bloom-release --ros-distro dashing rc_genicam_api` on `Wed, 23 Sep 2020 12:41:15 -0000`
+
+The `rc_genicam_api` package was released.
+
+Version of package(s) in repository `rc_genicam_api`:
+
+- upstream repository: https://github.com/roboception/rc_genicam_api.git
+- release repository: https://github.com/roboception-gbp/rc_genicam_api-release.git
+- rosdistro version: `2.3.5-1`
+- old version: `2.3.5-1`
+- new version: `2.4.1-1`
+
+Versions of tools used:
+
+- bloom version: `0.9.8`
+- catkin_pkg version: `0.4.22`
+- rosdep version: `0.19.0`
+- rosdistro version: `0.8.2`
+- vcstools version: `0.1.42`
+
+
 ## rc_genicam_api (kinetic) - 2.4.1-1
 
 The packages in the `rc_genicam_api` repository were released into the `kinetic` distro by running `/usr/bin/bloom-release --ros-distro kinetic rc_genicam_api` on `Wed, 23 Sep 2020 12:29:43 -0000`
