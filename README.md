@@ -1,3 +1,26 @@
+## rc_genicam_api (foxy) - 2.5.12-1
+
+The packages in the `rc_genicam_api` repository were released into the `foxy` distro by running `/usr/bin/bloom-release --ros-distro foxy rc_genicam_api --override-release-repository-url https://github.com/ros2-gbp/rc_genicam_api-release.git --override-release-repository-push-url git@github.com:ros2-gbp/rc_genicam_api-release.git` on `Tue, 16 Nov 2021 11:49:43 -0000`
+
+The `rc_genicam_api` package was released.
+
+Version of package(s) in repository `rc_genicam_api`:
+
+- upstream repository: https://github.com/roboception/rc_genicam_api.git
+- release repository: https://github.com/roboception-gbp/rc_genicam_api-release.git
+- rosdistro version: `2.5.6-1`
+- old version: `2.5.0-1`
+- new version: `2.5.12-1`
+
+Versions of tools used:
+
+- bloom version: `0.10.7`
+- catkin_pkg version: `0.4.24`
+- rosdep version: `0.21.0`
+- rosdistro version: `0.8.3`
+- vcstools version: `0.1.42`
+
+
 ## rc_genicam_api (galactic) - 2.5.6-1
 
 The packages in the `rc_genicam_api` repository were released into the `galactic` distro by running `/usr/bin/bloom-release rc_genicam_api -r galactic --override-release-repository-push-url git@github.com:ros2-gbp/rc_genicam_api-release.git` on `Thu, 19 Aug 2021 07:59:40 -0000`
