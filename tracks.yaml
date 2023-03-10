@@ -287,7 +287,7 @@ tracks:
     name: rc_genicam_api
     patches: null
     release_inc: '2'
-    release_repo_url: git@github.com:roboception/rc_genicam_api-release.git
+    release_repo_url: git@github.com:ros2-gbp/rc_genicam_api-release.git
     release_tag: v:{version}
     ros_distro: rolling
     vcs_type: git
