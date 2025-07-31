@@ -35,6 +35,7 @@
 
 #include "device.h"
 #include "stream.h"
+#include "config.h"
 
 #include "gentl_wrapper.h"
 #include "exception.h"
@@ -55,6 +56,7 @@ Device::Device(const std::shared_ptr<Interface> &_parent,
   n_open=0;
   dev=0;
   rp=0;
+  event=0;
 }
 
 Device::~Device()
@@ -122,12 +124,15 @@ void Device::open(ACCESS access)
       i++;
     }
 
+    event=0;
+    eventadapter.reset();
+
     // check if open was successful
 
     if (err != GenTL::GC_ERR_SUCCESS)
     {
       parent->close();
-      throw GenTLException("Device::open() failed", gentl);
+      throw GenTLException("Device::open() failed: "+std::to_string(err), gentl);
     }
   }
 
@@ -144,9 +149,17 @@ void Device::close()
 
     if (n_open == 0)
     {
+      eventadapter.reset();
+
+      if (event)
+      {
+        gentl->GCUnregisterEvent(dev, GenTL::EVENT_MODULE);
+      }
+
       gentl->DevClose(dev);
       dev=0;
       rp=0;
+      event=0;
 
       nodemap=0;
       rnodemap=0;
@@ -156,6 +169,219 @@ void Device::close()
 
       parent->close();
     }
+  }
+}
+
+void Device::enableModuleEvents()
+{
+  std::lock_guard<std::mutex> lock(mtx);
+
+  if (dev && !event)
+  {
+    if (gentl->GCRegisterEvent(dev, GenTL::EVENT_MODULE, &event) != GenTL::GC_ERR_SUCCESS)
+    {
+      throw GenTLException("Device::enableModuleEvents()", gentl);
+    }
+  }
+}
+
+int Device::getAvailableModuleEvents()
+{
+  std::lock_guard<std::mutex> lock(mtx);
+  size_t ret=0;
+
+  GenTL::INFO_DATATYPE type;
+  size_t size=sizeof(ret);
+
+  if (event != 0)
+  {
+    if (gentl->EventGetInfo(event, GenTL::EVENT_NUM_IN_QUEUE, &type, &ret, &size) != GenTL::GC_ERR_SUCCESS)
+    {
+      ret=0;
+    }
+  }
+
+  return static_cast<int>(ret);
+}
+
+namespace
+{
+
+std::string cDevGetInfo(const Device *obj, const std::shared_ptr<const GenTLWrapper> &gentl,
+                        GenTL::DEVICE_INFO_CMD info)
+{
+  std::string ret;
+
+  GenTL::INFO_DATATYPE type=GenTL::INFO_DATATYPE_UNKNOWN;
+  char tmp[1024]="";
+  size_t tmp_size=sizeof(tmp);
+  GenTL::GC_ERROR err=GenTL::GC_ERR_ERROR;
+
+  if (obj->getHandle() != 0)
+  {
+    err=gentl->DevGetInfo(obj->getHandle(), info, &type, tmp, &tmp_size);
+  }
+  else if (obj->getParent()->getHandle() != 0)
+  {
+    err=gentl->IFGetDeviceInfo(obj->getParent()->getHandle(), obj->getID().c_str(), info, &type,
+                               tmp, &tmp_size);
+  }
+
+  if (err == GenTL::GC_ERR_SUCCESS && type == GenTL::INFO_DATATYPE_STRING)
+  {
+    for (size_t i=0; i<tmp_size && tmp[i] != '\0'; i++)
+    {
+      ret.push_back(tmp[i]);
+    }
+  }
+
+  return ret;
+}
+
+}
+
+int64_t Device::getModuleEvent(int64_t _timeout)
+{
+  int64_t eventid=-1;
+  uint64_t timeout=GENTL_INFINITE;
+
+  {
+    std::lock_guard<std::mutex> lock(mtx);
+
+    if (_timeout >= 0)
+    {
+      timeout=static_cast<uint64_t>(_timeout);
+    }
+
+    // check that streaming had been started
+
+    if (event == 0)
+    {
+      return -3;
+    }
+
+    // determine memory for receiving the event
+
+    if (event_buffer.size() == 0)
+    {
+      size_t value=0;
+
+      GenTL::INFO_DATATYPE type;
+      size_t size=sizeof(value);
+
+      if (gentl->EventGetInfo(event, GenTL::EVENT_SIZE_MAX, &type, &value, &size) == GenTL::GC_ERR_SUCCESS)
+      {
+        event_buffer.resize(value);
+        event_value.resize(value);
+      }
+    }
+
+    // clear buffer
+
+    for (size_t i=0; i<event_buffer.size(); i++)
+    {
+      event_buffer[i]=0;
+      event_value[i]=0;
+    }
+  }
+
+  // get event data
+
+  size_t size=event_buffer.size();
+
+  GenTL::GC_ERROR err=gentl->EventGetData(event, event_buffer.data(), &size, timeout);
+
+  std::lock_guard<std::mutex> lock(mtx);
+
+  // return 0 in case of abort and timeout and throw exception in case of
+  // another error
+
+  if (err == GenTL::GC_ERR_TIMEOUT)
+  {
+    return -1;
+  }
+  else if (err == GenTL::GC_ERR_ABORT)
+  {
+    return -2;
+  }
+  else if (err != GenTL::GC_ERR_SUCCESS)
+  {
+    throw GenTLException("Device::getModuleEvent()", gentl);
+  }
+
+  // get event ID
+
+  {
+    GenTL::INFO_DATATYPE type=GenTL::INFO_DATATYPE_UNKNOWN;
+    char tmp[80];
+    size_t tmp_size=sizeof(tmp);
+
+    err=gentl->EventGetDataInfo(event, event_buffer.data(), size, GenTL::EVENT_DATA_ID,
+      &type, tmp, &tmp_size);
+
+    if (err != GenTL::GC_ERR_SUCCESS)
+    {
+      throw GenTLException("Device::getModuleEvent()", gentl);
+    }
+
+    if (type == GenTL::INFO_DATATYPE_STRING)
+    {
+      eventid=std::stoi(std::string(tmp), 0, 16);
+    }
+    else if (type == GenTL::INFO_DATATYPE_INT32)
+    {
+      int32_t value=0;
+      memcpy(&value, tmp, sizeof(value));
+      eventid=value;
+    }
+  }
+
+  // get event value
+
+  {
+    GenTL::INFO_DATATYPE type=GenTL::INFO_DATATYPE_UNKNOWN;
+    size=event_value.size();
+
+    err=gentl->EventGetDataInfo(event, event_buffer.data(), size, GenTL::EVENT_DATA_VALUE,
+      &type, event_value.data(), &size);
+
+    if (err != GenTL::GC_ERR_SUCCESS)
+    {
+      throw GenTLException("Device::getModuleEvent()", gentl);
+    }
+  }
+
+  if (!nodemap)
+  {
+    cport=std::shared_ptr<CPort>(new CPort(gentl, &dev));
+    nodemap=allocNodeMap(gentl, dev, cport.get(), 0);
+  }
+
+  try
+  {
+    if (!eventadapter)
+    {
+      eventadapter=std::shared_ptr<GenApi::CEventAdapterGeneric>(new GenApi::CEventAdapterGeneric(nodemap->_Ptr));
+    }
+
+    if (eventid > 0)
+    {
+      eventadapter->DeliverMessage(event_value.data(), size, static_cast<uint64_t>(eventid));
+    }
+  }
+  catch (const std::exception &)
+  { }
+
+  return eventid;
+}
+
+void Device::abortWaitingForModuleEvents()
+{
+  std::lock_guard<std::mutex> lock(mtx);
+
+  if (event != 0)
+  {
+    gentl->EventKill(event);
   }
 }
 
@@ -239,42 +465,6 @@ std::vector<std::shared_ptr<Stream> > Device::getStreams()
   }
 
   return ret;
-
-}
-
-namespace
-{
-
-std::string cDevGetInfo(const Device *obj, const std::shared_ptr<const GenTLWrapper> &gentl,
-                        GenTL::DEVICE_INFO_CMD info)
-{
-  std::string ret;
-
-  GenTL::INFO_DATATYPE type=GenTL::INFO_DATATYPE_UNKNOWN;
-  char tmp[1024]="";
-  size_t tmp_size=sizeof(tmp);
-  GenTL::GC_ERROR err=GenTL::GC_ERR_ERROR;
-
-  if (obj->getHandle() != 0)
-  {
-    err=gentl->DevGetInfo(obj->getHandle(), info, &type, tmp, &tmp_size);
-  }
-  else if (obj->getParent()->getHandle() != 0)
-  {
-    err=gentl->IFGetDeviceInfo(obj->getParent()->getHandle(), obj->getID().c_str(), info, &type,
-                               tmp, &tmp_size);
-  }
-
-  if (err == GenTL::GC_ERR_SUCCESS && type == GenTL::INFO_DATATYPE_STRING)
-  {
-    for (size_t i=0; i<tmp_size && tmp[i] != '\0'; i++)
-    {
-      ret.push_back(tmp[i]);
-    }
-  }
-
-  return ret;
-}
 
 }
 
@@ -446,14 +636,14 @@ uint64_t Device::getTimestampFrequency()
   return freq;
 }
 
-std::shared_ptr<GenApi::CNodeMapRef> Device::getNodeMap()
+std::shared_ptr<GenApi::CNodeMapRef> Device::getNodeMap(const char *xml)
 {
   std::lock_guard<std::mutex> lock(mtx);
 
   if (dev != 0 && !nodemap)
   {
     cport=std::shared_ptr<CPort>(new CPort(gentl, &dev));
-    nodemap=allocNodeMap(gentl, dev, cport.get());
+    nodemap=allocNodeMap(gentl, dev, cport.get(), xml);
   }
 
   return nodemap;
@@ -496,7 +686,7 @@ void *Device::getHandle() const
   return dev;
 }
 
-std::vector<std::shared_ptr<Device> > getDevices()
+std::vector<std::shared_ptr<Device> > getDevices(uint64_t timeout)
 {
   std::vector<std::shared_ptr<Device> > ret;
 
@@ -512,7 +702,7 @@ std::vector<std::shared_ptr<Device> > getDevices()
     {
       interf[k]->open();
 
-      std::vector<std::shared_ptr<Device> > device=interf[k]->getDevices();
+      std::vector<std::shared_ptr<Device> > device=interf[k]->getDevices(timeout);
 
       for (size_t j=0; j<device.size(); j++)
       {
@@ -528,7 +718,12 @@ std::vector<std::shared_ptr<Device> > getDevices()
   return ret;
 }
 
-std::shared_ptr<Device> getDevice(const char *id)
+std::vector<std::shared_ptr<Device> > getDevices()
+{
+  return getDevices(1000);
+}
+
+std::shared_ptr<Device> getDevice(const char *id, uint64_t timeout)
 {
   int found=0;
   std::shared_ptr<Device> ret;
@@ -569,7 +764,7 @@ std::shared_ptr<Device> getDevice(const char *id)
           {
             interf[k]->open();
 
-            std::shared_ptr<Device> dev=interf[k]->getDevice(devid.c_str());
+            std::shared_ptr<Device> dev=interf[k]->getDevice(devid.c_str(), timeout);
 
             if (dev)
             {
@@ -590,7 +785,7 @@ std::shared_ptr<Device> getDevice(const char *id)
         {
           interf[k]->open();
 
-          dev=interf[k]->getDevice(devid.c_str());
+          dev=interf[k]->getDevice(devid.c_str(), timeout);
 
           if (dev)
           {
@@ -614,6 +809,11 @@ std::shared_ptr<Device> getDevice(const char *id)
   }
 
   return ret;
+}
+
+std::shared_ptr<Device> getDevice(const char *id)
+{
+  return getDevice(id, 1000);
 }
 
 }

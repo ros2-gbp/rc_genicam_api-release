@@ -1,7 +1,7 @@
 /*
  * This file is part of the rc_genicam_api package.
  *
- * Copyright (c) 2017 Roboception GmbH
+ * Copyright (c) 2017-2024 Roboception GmbH
  * All rights reserved
  *
  * Author: Heiko Hirschmueller
@@ -161,7 +161,9 @@ int main(int argc, char *argv[])
 
         // get parameters, if any
 
+        int module_event_timeout=-1;
         const char *xml=0;
+        const char *paramfile=0;
         bool local_nodemap=false;
         bool edit=false;
 
@@ -176,6 +178,16 @@ int main(int argc, char *argv[])
             {
               xml="";
             }
+          }
+          else if (std::string(argv[k]) == "-m")
+          {
+            k++;
+            module_event_timeout=std::stoi(std::string(argv[k++]));
+          }
+          else if (std::string(argv[k]) == "-p")
+          {
+            k++;
+            paramfile=argv[k++];
           }
           else if (std::string(argv[k]) == "-d")
           {
@@ -210,13 +222,21 @@ int main(int argc, char *argv[])
 
               if (j != std::string::npos)
               {
-                node=devid.substr(j+1);
-                devid=devid.substr(0, j);
-                depth=1;
-
-                if (node.size() == 0)
+                if (devid.substr(j+1) != "-")
                 {
-                  node="Root";
+                  node=devid.substr(j+1);
+                  devid=devid.substr(0, j);
+                  depth=1;
+
+                  if (node.size() == 0)
+                  {
+                    node="Root";
+                  }
+                }
+                else
+                {
+                  node="";
+                  devid=devid.substr(0, j);
                 }
               }
             }
@@ -229,7 +249,7 @@ int main(int argc, char *argv[])
             {
               // open device and optionally change some settings
 
-              if (k < argc || edit)
+              if (k < argc || edit || paramfile)
               {
                 dev->open(rcg::Device::CONTROL);
               }
@@ -238,23 +258,52 @@ int main(int argc, char *argv[])
                 dev->open(rcg::Device::READONLY);
               }
 
+              // get nodemap
+
               std::shared_ptr<GenApi::CNodeMapRef> nodemap;
               if (local_nodemap)
               {
-                nodemap=dev->getNodeMap();
+                nodemap=dev->getNodeMap(xml);
               }
               else
               {
                 nodemap=dev->getRemoteNodeMap(xml);
               }
 
+              // register and enable module events
+
+              if (module_event_timeout >= 0)
+              {
+                dev->enableModuleEvents();
+
+                std::shared_ptr<GenApi::CNodeMapRef> lnodemap;
+                lnodemap=dev->getNodeMap();
+
+                std::vector<std::string> list;
+                rcg::getEnum(lnodemap, "EventSelector", list, false);
+
+                for (size_t i=0; i<list.size(); i++)
+                {
+                  rcg::setEnum(lnodemap, "EventSelector", list[i].c_str(), true);
+                  rcg::setEnum(lnodemap, "EventNotification", "On", false);
+                }
+              }
+
               if (nodemap)
               {
+                // interpret all remaining parameters
+
                 while (k < argc)
                 {
                   std::string p=argv[k++];
 
-                  if (p.find('=') != std::string::npos)
+                  if (p.size() > 0 && p[0] == '@')
+                  {
+                    // load streamable parameters from file into nodemap
+
+                    rcg::loadStreamableParameters(nodemap, p.substr(1).c_str(), true);
+                  }
+                  else if (p.find('=') != std::string::npos)
                   {
                     // split argument in key and value
 
@@ -273,6 +322,26 @@ int main(int argc, char *argv[])
                   }
                 }
 
+                if (module_event_timeout >= 0)
+                {
+                  std::cout << "Waiting for events" << std::endl;
+
+                  int64_t eventid=dev->getModuleEvent(1000*module_event_timeout);
+
+                  if (eventid < 0)
+                  {
+                    std::cout << "Received no module events" << std::endl;
+                  }
+
+                  while (eventid >= 0)
+                  {
+                    std::cout << "Received module event with ID: " << eventid << std::endl;
+                    eventid=dev->getModuleEvent(0);
+                  }
+
+                  std::cout << std::endl;
+                }
+
                 if (edit)
                 {
                   if (!rcg::editNodemap(nodemap, node.c_str()))
@@ -281,51 +350,59 @@ int main(int argc, char *argv[])
                     ret=1;
                   }
                 }
-                else if (depth > 1)
+                else if (node.size() > 0)
                 {
-                  // report all features
-
-                  std::cout << "Device:            " << dev->getID() << std::endl;
-                  std::cout << "Vendor:            " << dev->getVendor() << std::endl;
-                  std::cout << "Model:             " << dev->getModel() << std::endl;
-                  std::cout << "TL type:           " << dev->getTLType() << std::endl;
-                  std::cout << "Display name:      " << dev->getDisplayName() << std::endl;
-                  std::cout << "User defined name: " << dev->getUserDefinedName() << std::endl;
-                  std::cout << "Serial number:     " << dev->getSerialNumber() << std::endl;
-                  std::cout << "Version:           " << dev->getVersion() << std::endl;
-                  std::cout << "TS Frequency:      " << dev->getTimestampFrequency() << std::endl;
-                  std::cout << std::endl;
-
-                  std::vector<std::shared_ptr<rcg::Stream> > stream=dev->getStreams();
-
-                  std::cout << "Available streams:" << std::endl;
-                  for (size_t i=0; i<stream.size(); i++)
+                  if (depth > 1)
                   {
-                    std::cout << "  Stream ID: " << stream[i]->getID() << std::endl;
-                  }
+                    // report all features
 
-                  std::cout << std::endl;
+                    std::cout << "Device:            " << dev->getID() << std::endl;
+                    std::cout << "Vendor:            " << dev->getVendor() << std::endl;
+                    std::cout << "Model:             " << dev->getModel() << std::endl;
+                    std::cout << "TL type:           " << dev->getTLType() << std::endl;
+                    std::cout << "Display name:      " << dev->getDisplayName() << std::endl;
+                    std::cout << "User defined name: " << dev->getUserDefinedName() << std::endl;
+                    std::cout << "Serial number:     " << dev->getSerialNumber() << std::endl;
+                    std::cout << "Version:           " << dev->getVersion() << std::endl;
+                    std::cout << "TS Frequency:      " << dev->getTimestampFrequency() << std::endl;
+                    std::cout << std::endl;
 
-                  if (local_nodemap)
-                  {
-                    std::cout << "Local device nodemap:" << std::endl;
+                    std::vector<std::shared_ptr<rcg::Stream> > stream=dev->getStreams();
+
+                    std::cout << "Available streams:" << std::endl;
+                    for (size_t i=0; i<stream.size(); i++)
+                    {
+                      std::cout << "  Stream ID: " << stream[i]->getID() << std::endl;
+                    }
+
+                    std::cout << std::endl;
+
+                    if (local_nodemap)
+                    {
+                      std::cout << "Local device nodemap:" << std::endl;
+                    }
+                    else
+                    {
+                      std::cout << "Remote device nodemap:" << std::endl;
+                    }
+
+                    rcg::printNodemap(nodemap, node.c_str(), depth, true);
                   }
                   else
                   {
-                    std::cout << "Remote device nodemap:" << std::endl;
-                  }
+                    // report requested node only
 
-                  rcg::printNodemap(nodemap, node.c_str(), depth, true);
+                    if (!rcg::printNodemap(nodemap, node.c_str(), depth, true))
+                    {
+                      std::cerr << "Unknown node: " << node << std::endl;
+                      ret=1;
+                    }
+                  }
                 }
-                else
-                {
-                  // report requested node only
 
-                  if (!rcg::printNodemap(nodemap, node.c_str(), depth, true))
-                  {
-                    std::cerr << "Unknown node: " << node << std::endl;
-                    ret=1;
-                  }
+                if (paramfile)
+                {
+                  rcg::saveStreamableParameters(nodemap, paramfile, true);
                 }
               }
               else
@@ -351,7 +428,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-      std::cout << argv[0] << " -h | -L | -l | -s | ([-o <xml-output-file>|.] [-d] [-e] [<interface-id>:]<device-id>[?<node>] [<key>=<value>] ...)" << std::endl;
+      std::cout << argv[0] << " -h | -L | -l | -s | ([-o <xml-output-file>|.] [-m <timeout>] [-p <file>] [-d] [-e] [<interface-id>:]<device-id>[?<node>] [@<file>] [<key>=<value>] ...)" << std::endl;
       std::cout << std::endl;
       std::cout << "Provides information about GenICam transport layers, interfaces and devices." << std::endl;
       std::cout << std::endl;
@@ -361,13 +438,16 @@ int main(int argc, char *argv[])
       std::cout << "-l   List all available devices on all interfaces" << std::endl;
       std::cout << "-s   List all available devices on all interfaces (short format)" << std::endl;
       std::cout << "-o   Store XML description from specified device" << std::endl;
+      std::cout << "-m   Registers for module events and waits for the given number of seconds for such events" << std::endl;
       std::cout << "-d   Use local device nodemap, instead of remote nodemap" << std::endl;
       std::cout << "-e   Open nodemap editor instead of printing nodemap" << std::endl;
+      std::cout << "-p   Store all streamable parameters to the given file, after applying all parameters" << std::endl;
       std::cout << std::endl;
       std::cout << "Parameters:" << std::endl;
       std::cout << "<interface-id> Optional GenICam ID of interface for connecting to the device" << std::endl;
       std::cout << "<device-id>    GenICam device ID, serial number or user defined name of device" << std::endl;
-      std::cout << "<node>         Optional name of category or parameter to be reported" << std::endl;
+      std::cout << "<node>         Optional name of category or parameter to be reported. '-' for none. Default is 'Root'." << std::endl;
+      std::cout << "@<file>        Optional file with parameters as store with parameter '-p'" << std::endl;
       std::cout << "<key>=<value>  Optional GenICam parameters to be changed in the given order before reporting" << std::endl;
       ret=1;
     }

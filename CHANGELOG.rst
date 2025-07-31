@@ -1,3 +1,43 @@
+2.8.1 (2025-07-31)
+------------------
+
+- Windows: Fixed build issue and report missing GenTL symbol if loading of transport layer fails due to missing symbols
+
+2.8.0 (2025-03-24)
+------------------
+
+- Extended class for GenTL exceptions to access error codes and messages through seperate methods
+
+2.7.0 (2024-12-02)
+------------------
+
+- Added possibility to receive module events for a device
+- gc_info: Added interface to test receiving module events
+- Improved exception message when opening device is failing
+- Fixed crashing when stream and device is closed after loosing connection
+
+2.6.8 (2024-10-16)
+------------------
+
+- gc_stream:
+  - split RawCombined like IntensityCombined
+  - apply writable chunk parameters every time after attaching the buffer
+
+- gc_file:
+  - Fixed possible problem when reading file via gc_file
+
+2.6.7 (2024-08-23)
+------------------
+
+- Added functions and parameters to command line tools for loading and storing streamable parameters
+- Throw an exception if an image buffer does not contain any data
+- Added methods and function with timeout parameters for device discovery
+
+2.6.6 (2024-06-04)
+------------------
+
+- Added armhf jobs for jammy
+
 2.6.5 (2024-03-12)
 ------------------
 
