@@ -40,6 +40,8 @@
 
 #include <mutex>
 
+#include <GenApi/EventAdapterGeneric.h>
+
 namespace rcg
 {
 
@@ -86,6 +88,8 @@ class Device : public std::enable_shared_from_this<Device>
       Opens the device for working with it. The interface may be opened
       multiple times. However, for each open(), the close() method must be
       called as well.
+
+      @param access Access mode.
     */
 
     void open(ACCESS access);
@@ -96,6 +100,43 @@ class Device : public std::enable_shared_from_this<Device>
     */
 
     void close();
+
+    /**
+      Enable module events for the local device. Does nothing if they are
+      already enabled.
+    */
+
+    void enableModuleEvents();
+
+    /**
+      Returns the number of module events that are currently in the queue. This
+      returns 0 if modules events have not been enabled.
+
+      @return Module event count.
+    */
+
+    int getAvailableModuleEvents();
+
+    /**
+      Gets the next module event for the device and attaches it to the local
+      device nodemap.
+
+      NOTE: This can be called from a different thread to wait for the event.
+
+      @param timeout Timeout in ms. A value < 0 sets waiting time to infinite.
+      @return        Event ID or
+                     -1 if the method returned due to timeout,
+                     -2 if waiting was interrupted due to calling abortWaitingForModuleEvents(),
+                     -3 if module events have not been enabled.
+    */
+
+    int64_t getModuleEvent(int64_t timeout=-1);
+
+    /**
+      Aborts waiting for module events.
+    */
+
+    void abortWaitingForModuleEvents();
 
     /**
       Returns the currently available streams of this device.
@@ -222,10 +263,13 @@ class Device : public std::enable_shared_from_this<Device>
       NOTE: open() must be called before calling this method. The returned
       pointer remains valid until close() of this object is called.
 
+      @param xml Path and name for storing the received XML file. An empty
+                 string for using the filename on the device or 0 if xml
+                 file should not be stored.
       @return Node map of this object.
     */
 
-    std::shared_ptr<GenApi::CNodeMapRef> getNodeMap();
+    std::shared_ptr<GenApi::CNodeMapRef> getNodeMap(const char *xml=0);
 
     /**
       Returns the node map of the remote device.
@@ -272,9 +316,13 @@ class Device : public std::enable_shared_from_this<Device>
     int n_open;
     void *dev;
     void *rp;
+    void *event;
+    std::vector<uint8_t> event_buffer;
+    std::vector<uint8_t> event_value;
 
     std::shared_ptr<CPort> cport, rport;
     std::shared_ptr<GenApi::CNodeMapRef> nodemap, rnodemap;
+    std::shared_ptr<GenApi::CEventAdapterGeneric> eventadapter;
 
     std::vector<std::weak_ptr<Stream> > slist;
 };
@@ -283,9 +331,12 @@ class Device : public std::enable_shared_from_this<Device>
   Returns a list of all devices that are available across all transport layers
   and interfaces.
 
-  @return List of available devices.
+  @param timeout Timeout in ms for discovery of devices on each interface. The
+                 function without this parameter uses a timeout of 1000 ms.
+  @return        List of available devices.
 */
 
+std::vector<std::shared_ptr<Device> > getDevices(uint64_t timeout);
 std::vector<std::shared_ptr<Device> > getDevices();
 
 /**
@@ -294,10 +345,13 @@ std::vector<std::shared_ptr<Device> > getDevices();
   i.e. "[<interfaca_id>[:]]<device_id>". If the interface ID is not given, then
   all interfaces are sought and the first device with the given ID returned.
 
-  @param devid Device ID.
-  @return      Device or null pointer.
+  @param devid   Device ID.
+  @param timeout Timeout in ms for discovery of devices on each interface. The
+                 function without this parameter uses a timeout of 1000 ms.
+  @return        Device or null pointer.
 */
 
+std::shared_ptr<Device> getDevice(const char *devid, uint64_t timeout);
 std::shared_ptr<Device> getDevice(const char *devid);
 
 }
