@@ -39,6 +39,7 @@
 #include <stdexcept>
 #include <iomanip>
 #include <limits>
+#include <fstream>
 
 #include "Base/GCException.h"
 
@@ -1167,7 +1168,7 @@ std::string loadFile(const std::shared_ptr<GenApi::CNodeMapRef> &nodemap, const 
 
   if (rf.openFile(name, std::ios::in))
   {
-    size_t length=std::numeric_limits<size_t>::max();
+    int length=std::numeric_limits<int>::max();
     try
     {
       // limit read operation to file size, if available
@@ -1181,7 +1182,7 @@ std::string loadFile(const std::shared_ptr<GenApi::CNodeMapRef> &nodemap, const 
 
     while (n > 0 && length > 0)
     {
-      n=rf.read(buffer.data(), off, std::min(length, buffer.size()), name);
+      n=rf.read(buffer.data(), off, std::min(length, static_cast<int>(buffer.size())), name);
 
       if (n == 0)
       {
@@ -1258,6 +1259,82 @@ bool saveFile(const std::shared_ptr<GenApi::CNodeMapRef> &nodemap, const char *n
     }
 
     ret=false;
+  }
+
+  return ret;
+}
+
+bool loadStreamableParameters(const std::shared_ptr<GenApi::CNodeMapRef> &nodemap, const char *name,
+  bool exception)
+{
+  bool ret=false;
+
+  try
+  {
+    GenApi::CFeatureBag bag;
+
+    std::ifstream in;
+    in.exceptions(std::ios_base::failbit | std::ios_base::badbit);
+
+    in.open(name);
+    in >> bag;
+    in.close();
+
+    bag.LoadFromBag(nodemap->_Ptr, true);
+
+    ret=true;
+  }
+  catch (const std::exception &ex)
+  {
+    if (exception)
+    {
+      throw std::invalid_argument(ex.what());
+    }
+  }
+  catch (const GENICAM_NAMESPACE::GenericException &ex)
+  {
+    if (exception)
+    {
+      throw std::invalid_argument(ex.what());
+    }
+  }
+
+  return ret;
+}
+
+bool saveStreamableParameters(const std::shared_ptr<GenApi::CNodeMapRef> &nodemap, const char *name,
+  bool exception)
+{
+  bool ret=false;
+
+  try
+  {
+    GenApi::CFeatureBag bag;
+
+    bag.StoreToBag(nodemap->_Ptr);
+
+    std::ofstream out;
+    out.exceptions(std::ios_base::failbit | std::ios_base::badbit);
+
+    out.open(name);
+    out << bag;
+    out.close();
+
+    ret=true;
+  }
+  catch (const std::exception &ex)
+  {
+    if (exception)
+    {
+      throw std::invalid_argument(ex.what());
+    }
+  }
+  catch (const GENICAM_NAMESPACE::GenericException &ex)
+  {
+    if (exception)
+    {
+      throw std::invalid_argument(ex.what());
+    }
   }
 
   return ret;
