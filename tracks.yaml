@@ -375,4 +375,5 @@ tracks:
     ros_distro: rolling
     vcs_type: git
     vcs_uri: https://github.com/roboception/rc_genicam_api.git
-    version: :{auto}
+    version: 2.8.1
+    version_saved: :{auto}
