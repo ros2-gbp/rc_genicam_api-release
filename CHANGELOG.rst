@@ -1,3 +1,24 @@
+2.8.5 (2026-06-02)
+------------------
+
+* set CMP0045 policy to NEW to support newer cmake versions
+
+2.8.4 (2026-05-07)
+------------------
+
+* Added noble arm64 jobs
+* Add possibility to edit nodemap interactively in gc_stream before starting to stream
+
+2.8.3 (2025-12-23)
+------------------
+
+- Added parameter to gc_stream to change the number of retrys
+
+2.8.2 (2025-08-13)
+------------------
+
+- Added CI build job for noble and fixed lintian issues
+
 2.8.1 (2025-07-31)
 ------------------
 
