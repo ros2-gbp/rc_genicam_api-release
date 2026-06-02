@@ -41,6 +41,7 @@
 #include <rc_genicam_api/image.h>
 #include <rc_genicam_api/image_store.h>
 #include <rc_genicam_api/config.h>
+#include <rc_genicam_api/nodemap_edit.h>
 #include <rc_genicam_api/nodemap_out.h>
 
 #include <rc_genicam_api/pixel_formats.h>
@@ -69,15 +70,17 @@ void printHelp()
 {
   // show help
 
-  std::cout << "gc_stream -h | [-c] [-f <fmt>] [-t] [<interface-id>:]<device-id> [n=<n>] [@<file>] [<key>=<value>] ..." << std::endl;
+  std::cout << "gc_stream -h | [-c] [-f <fmt>] [-r <n>] [-t] [-e] [<interface-id>:]<device-id> [n=<n>] [@<file>] [<key>=<value>] ..." << std::endl;
   std::cout << std::endl;
   std::cout << "Stores images from the specified device after applying the given optional GenICam parameters." << std::endl;
   std::cout << std::endl;
   std::cout << "Options:" << std::endl;
   std::cout << "-h         Prints help information and exits" << std::endl;
   std::cout << "-c         Print ChunkDataControl category for all received buffers" << std::endl;
-  std::cout << "-t         Testmode, which does not store images and provides extended statistics" << std::endl;
   std::cout << "-f pnm|png Format for storing images. Default is pnm" << std::endl;
+  std::cout << "-r <n>     Number of times grabbing is retried. Default: 5" << std::endl;
+  std::cout << "-t         Testmode, which does not store images and provides extended statistics" << std::endl;
+  std::cout << "-e         Allow editing of nodemap, after applying parameters and before streaming" << std::endl;
   std::cout << std::endl;
   std::cout << "Parameters:" << std::endl;
   std::cout << "<interface-id> Optional GenICam ID of interface for connecting to the device" << std::endl;
@@ -400,7 +403,9 @@ int main(int argc, char *argv[])
   {
     bool print_chunk_data=false;
     bool store=true;
+    int nretry=5;
     rcg::ImgFmt fmt=rcg::PNM;
+    bool edit=false;
     int i=1;
 
     // get parameters
@@ -423,6 +428,20 @@ int main(int argc, char *argv[])
       {
         store=false;
         i++;
+      }
+      else if (param == "-r")
+      {
+        i++;
+
+        if (i < argc)
+        {
+          nretry=std::stoi(argv[i]);
+          i++;
+        }
+        else
+        {
+          throw std::invalid_argument("Argument expected after '-r'!");
+        }
       }
       else if (param == "-f")
       {
@@ -450,6 +469,11 @@ int main(int argc, char *argv[])
         {
           throw std::invalid_argument("Argument expected after '-f'!");
         }
+      }
+      else if (param == "-e")
+      {
+        edit=true;
+        i++;
       }
       else
       {
@@ -560,6 +584,32 @@ int main(int argc, char *argv[])
           }
         }
 
+        // edit nodemap interactively before proceeding
+
+        if (edit)
+        {
+          std::vector<std::string> changed;
+
+          rcg::editNodemap(nodemap, "Root", changed);
+
+          // show complete command line, including edited options
+
+          std::cout << std::endl;
+
+          std::cout << argv[0];
+          for (int k=1; k<argc; k++)
+          {
+            std::cout << ' ' << argv[k];
+          }
+
+          for (size_t k=0; k<changed.size(); k++)
+          {
+            std::cout << ' ' << changed[k];
+          }
+
+          std::cout << std::endl;
+        }
+
         // print enabled streams
 
         {
@@ -620,7 +670,7 @@ int main(int argc, char *argv[])
           {
             // grab next image with timeout of 3 seconds
 
-            int retry=5;
+            int retry=nretry;
             while (retry > 0 && !user_interrupt)
             {
               const rcg::Buffer *buffer=stream[0]->grab(3000);
