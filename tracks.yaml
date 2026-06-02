@@ -311,11 +311,11 @@ tracks:
     - git-bloom-generate -y rosdynrpm --prefix release/:{ros_distro} :{ros_distro}
       -i :{release_inc} --require-os fedora rhel
     devel_branch: null
-    last_release: v2.8.1
-    last_version: 2.8.1
+    last_release: v2.8.5
+    last_version: 2.8.5
     name: rc_genicam_api
     patches: null
-    release_inc: '3'
+    release_inc: '1'
     release_repo_url: null
     release_tag: v:{version}
     ros_distro: lyrical
